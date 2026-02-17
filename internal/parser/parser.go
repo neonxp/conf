@@ -17,40 +17,35 @@ import (
 
 var _ = unicode.MaxRune
 
-
-
-
-
 // Symbols
 const (
-	TOK_EOF = Symbol(0) // EOF
-	TOK_003d = Symbol(1) // '='
-	boolean = Symbol(2) // boolean
-	br = Symbol(3) // br
-	lbrace = Symbol(4) // lbrace
-	number = Symbol(5) // number
-	rbrace = Symbol(6) // rbrace
-	str = Symbol(7) // str
-	white_space = Symbol(8) // white_space
-	word = Symbol(9) // word
-	Config = Symbol(10) // Config
-	Doc = Symbol(11) // Doc
-	Stmt = Symbol(12) // Stmt
-	Assignment = Symbol(13) // Assignment
-	Command = Symbol(14) // Command
-	Values = Symbol(15) // Values
-	Value = Symbol(16) // Value
-	Body = Symbol(17) // Body
-	Word = Symbol(18) // Word
-	Number = Symbol(19) // Number
-	Boolean = Symbol(20) // Boolean
-	String = Symbol(21) // String
+	TOK_EOF     = Symbol(0)  // EOF
+	TOK_003d    = Symbol(1)  // '='
+	boolean     = Symbol(2)  // boolean
+	br          = Symbol(3)  // br
+	lbrace      = Symbol(4)  // lbrace
+	number      = Symbol(5)  // number
+	rbrace      = Symbol(6)  // rbrace
+	str         = Symbol(7)  // str
+	white_space = Symbol(8)  // white_space
+	word        = Symbol(9)  // word
+	Config      = Symbol(10) // Config
+	Doc         = Symbol(11) // Doc
+	Stmt        = Symbol(12) // Stmt
+	Assignment  = Symbol(13) // Assignment
+	Command     = Symbol(14) // Command
+	Values      = Symbol(15) // Values
+	Value       = Symbol(16) // Value
+	Body        = Symbol(17) // Body
+	Word        = Symbol(18) // Word
+	Number      = Symbol(19) // Number
+	Boolean     = Symbol(20) // Boolean
+	String      = Symbol(21) // String
 )
 
 const SymbolNames = "EOF'='booleanbrlbracenumberrbracestrwhite_spacewordConfigDocStmtAssignmentCommandValuesValueBodyWordNumberBooleanString"
 
-var SymbolIndex = [...]uint8{0, 3, 6, 13, 15, 21, 27, 33, 36, 47, 51, 57, 60, 64, 74, 81, 87, 92, 96, 100, 106, 113, 119, }
-
+var SymbolIndex = [...]uint8{0, 3, 6, 13, 15, 21, 27, 33, 36, 47, 51, 57, 60, 64, 74, 81, 87, 92, 96, 100, 106, 113, 119}
 
 func (s Symbol) String() string {
 	idx := int(s) - 0
@@ -61,42 +56,39 @@ func (s Symbol) String() string {
 }
 
 var errorSets = [...][]Symbol{
-{String, Boolean, Number, Word, Body, Value, Values, word, str, number, lbrace, br, boolean, TOK_003d},
-{TOK_003d},
-{String, Boolean, Number, Word, Value, word, str, number, lbrace, br, boolean},
-{String, Boolean, Number, Word, Value, word, str, number, boolean},
-{String, Boolean, Number, Word, word, str, number, boolean},
-{word, str, number, boolean},
-{boolean},
-{lbrace, br},
-{br},
-{lbrace},
-{number},
-{Word, Stmt, word, rbrace},
-{rbrace},
-{str},
-{Word, Stmt, word},
-{Word, word},
-{word},
+	{String, Boolean, Number, Word, Body, Value, Values, word, str, number, lbrace, br, boolean, TOK_003d},
+	{TOK_003d},
+	{String, Boolean, Number, Word, Value, word, str, number, lbrace, br, boolean},
+	{String, Boolean, Number, Word, Value, word, str, number, boolean},
+	{String, Boolean, Number, Word, word, str, number, boolean},
+	{word, str, number, boolean},
+	{boolean},
+	{lbrace, br},
+	{br},
+	{lbrace},
+	{number},
+	{Word, Stmt, word, rbrace},
+	{rbrace},
+	{str},
+	{Word, Stmt, word},
+	{Word, word},
+	{word},
 }
 
-
-
-type Parser struct{
+type Parser struct {
 	cache     [][]int32
 	eof       bool
 	errBudget int
-	id        rune  // from scanSep, valid if .n != 0
-	n         int   // from scanSep, valid if != 0
+	id        rune // from scanSep, valid if .n != 0
+	n         int  // from scanSep, valid if != 0
 	off       int
 	sc        *scanner.RecScanner
 	src       []byte
 	tok       scanner.Token // current lookahead
-	tokIndex  int32 // For scanner.Token(tokIndex)
+	tokIndex  int32         // For scanner.Token(tokIndex)
 }
 
 type Symbol int32
-
 
 // scan recognizes longest UTF-8 lexemes. Lower IDs take precedence on same length.
 //
@@ -121,45 +113,127 @@ func (*Parser) scan(s []byte) (id, length int) {
 	_ = r
 	_ = r1
 	_ = width1
-	step := func(pos int) (r rune, n int) { if pos < len(s) { c := s[pos]; if c < utf8.RuneSelf { return rune(c), 1 }; return utf8.DecodeRune(s[pos:]) }; return endOfText, 0 }
-	move := func() { pos += width; if r, width = r1, width1; r != endOfText { 	r1, width1 = step(pos+width); }; }
-	accept := func(x rune) bool { if r == x { move(); return true }; return false }
-_ = accept
-	accept2 := func(x rune) bool { if r <= x { move(); return true }; return false }
-_ = accept2
+	step := func(pos int) (r rune, n int) {
+		if pos < len(s) {
+			c := s[pos]
+			if c < utf8.RuneSelf {
+				return rune(c), 1
+			}
+			return utf8.DecodeRune(s[pos:])
+		}
+		return endOfText, 0
+	}
+	move := func() {
+		pos += width
+		if r, width = r1, width1; r != endOfText {
+			r1, width1 = step(pos + width)
+		}
+	}
+	accept := func(x rune) bool {
+		if r == x {
+			move()
+			return true
+		}
+		return false
+	}
+	_ = accept
+	accept2 := func(x rune) bool {
+		if r <= x {
+			move()
+			return true
+		}
+		return false
+	}
+	_ = accept2
 	r, r1 = endOfText, endOfText
 	width, width1 = 0, 0
-	r, width = step(pos);	if r != endOfText {
-		r1, width1 = step(pos+width); }
-	if accept('\t') { goto l37 }
-	if accept('\n') { goto l39 }
-	if accept('\r') { goto l41 }
-	if accept(' ') { goto l43 }
-	if accept('"') { goto l45 }
-	if accept('#') { goto l57 }
-	if accept('\'') { goto l65 }
-	if accept('-') { goto l77 }
-	if accept(';') { goto l93 }
-	if accept('=') { goto l95 }
-	if accept('`') { goto l105 }
-	if accept('f') { goto l117 }
-	if accept('t') { goto l145 }
-	if accept('{') { goto l167 }
-	if accept('}') { goto l169 }
-	if r < '0' { goto l30out }
-	if accept2('9') { goto l80 }
+	r, width = step(pos)
+	if r != endOfText {
+		r1, width1 = step(pos + width)
+	}
+	if accept('\t') {
+		goto l37
+	}
+	if accept('\n') {
+		goto l39
+	}
+	if accept('\r') {
+		goto l41
+	}
+	if accept(' ') {
+		goto l43
+	}
+	if accept('"') {
+		goto l45
+	}
+	if accept('#') {
+		goto l57
+	}
+	if accept('\'') {
+		goto l65
+	}
+	if accept('-') {
+		goto l77
+	}
+	if accept(';') {
+		goto l93
+	}
+	if accept('=') {
+		goto l95
+	}
+	if accept('`') {
+		goto l105
+	}
+	if accept('f') {
+		goto l117
+	}
+	if accept('t') {
+		goto l145
+	}
+	if accept('{') {
+		goto l167
+	}
+	if accept('}') {
+		goto l169
+	}
+	if r < '0' {
+		goto l30out
+	}
+	if accept2('9') {
+		goto l80
+	}
 l30out:
-	if r < 'A' { goto l32out }
-	if accept2('Z') { goto l97 }
-	if accept('_') { goto l97 }
-	if r < 'a' { goto l32out }
-	if accept2('e') { goto l97 }
-	if r < 'g' { goto l32out }
-	if accept2('s') { goto l97 }
-	if r < 'u' { goto l32out }
-	if accept2('z') { goto l97 }
+	if r < 'A' {
+		goto l32out
+	}
+	if accept2('Z') {
+		goto l97
+	}
+	if accept('_') {
+		goto l97
+	}
+	if r < 'a' {
+		goto l32out
+	}
+	if accept2('e') {
+		goto l97
+	}
+	if r < 'g' {
+		goto l32out
+	}
+	if accept2('s') {
+		goto l97
+	}
+	if r < 'u' {
+		goto l32out
+	}
+	if accept2('z') {
+		goto l97
+	}
 l32out:
-	if r == endOfText { goto l171 }
+	if r == endOfText {
+		goto l171
+	}
 	return id, length
 l37:
 	id, length = 8, pos
@@ -174,74 +248,136 @@ l43:
 	id, length = 8, pos
 	return id, length
 l45:
-	if accept('"') { goto l50 }
-	if accept2('!') { goto l52 }
-	if r < '#' { goto l47out }
-	if accept2('\U0010ffff') { goto l52 }
+	if accept('"') {
+		goto l50
+	}
+	if accept2('!') {
+		goto l52
+	}
+	if r < '#' {
+		goto l47out
+	}
+	if accept2('\U0010ffff') {
+		goto l52
+	}
 l47out:
 	return id, length
 l50:
 	id, length = 7, pos
 	return id, length
 l52:
-	if accept('"') { goto l50 }
-	if accept2('!') { goto l52 }
-	if r < '#' { goto l54out }
-	if accept2('\U0010ffff') { goto l52 }
+	if accept('"') {
+		goto l50
+	}
+	if accept2('!') {
+		goto l52
+	}
+	if r < '#' {
+		goto l54out
+	}
+	if accept2('\U0010ffff') {
+		goto l52
+	}
 l54out:
 	return id, length
 l57:
 	id, length = 8, pos
-	if accept2('\t') { goto l61 }
-	if r < '\v' { goto l58out }
-	if accept2('\U0010ffff') { goto l61 }
+	if accept2('\t') {
+		goto l61
+	}
+	if r < '\v' {
+		goto l58out
+	}
+	if accept2('\U0010ffff') {
+		goto l61
+	}
 l58out:
 	return id, length
 l61:
 	id, length = 8, pos
-	if accept2('\t') { goto l61 }
-	if r < '\v' { goto l62out }
-	if accept2('\U0010ffff') { goto l61 }
+	if accept2('\t') {
+		goto l61
+	}
+	if r < '\v' {
+		goto l62out
+	}
+	if accept2('\U0010ffff') {
+		goto l61
+	}
 l62out:
 	return id, length
 l65:
-	if accept('\'') { goto l70 }
-	if accept2('&') { goto l72 }
-	if r < '(' { goto l67out }
-	if accept2('\U0010ffff') { goto l72 }
+	if accept('\'') {
+		goto l70
+	}
+	if accept2('&') {
+		goto l72
+	}
+	if r < '(' {
+		goto l67out
+	}
+	if accept2('\U0010ffff') {
+		goto l72
+	}
 l67out:
 	return id, length
 l70:
 	id, length = 7, pos
 	return id, length
 l72:
-	if accept('\'') { goto l70 }
-	if accept2('&') { goto l72 }
-	if r < '(' { goto l74out }
-	if accept2('\U0010ffff') { goto l72 }
+	if accept('\'') {
+		goto l70
+	}
+	if accept2('&') {
+		goto l72
+	}
+	if r < '(' {
+		goto l74out
+	}
+	if accept2('\U0010ffff') {
+		goto l72
+	}
 l74out:
 	return id, length
 l77:
-	if r < '0' { goto l77out }
-	if accept2('9') { goto l80 }
+	if r < '0' {
+		goto l77out
+	}
+	if accept2('9') {
+		goto l80
+	}
 l77out:
 	return id, length
 l80:
 	id, length = 5, pos
-	if accept('.') { goto l86 }
-	if r < '0' { goto l83out }
-	if accept2('9') { goto l80 }
+	if accept('.') {
+		goto l86
+	}
+	if r < '0' {
+		goto l83out
+	}
+	if accept2('9') {
+		goto l80
+	}
 l83out:
 	return id, length
 l86:
-	if r < '0' { goto l86out }
-	if accept2('9') { goto l89 }
+	if r < '0' {
+		goto l86out
+	}
+	if accept2('9') {
+		goto l89
+	}
 l86out:
 	return id, length
 l89:
 	id, length = 5, pos
-	if r < '0' { goto l90out }
-	if accept2('9') { goto l89 }
+	if r < '0' {
+		goto l90out
+	}
+	if accept2('9') {
+		goto l89
+	}
 l90out:
 	return id, length
 l93:
@@ -252,159 +388,367 @@ l95:
 	return id, length
 l97:
 	id, length = 9, pos
-	if r < '0' { goto l98out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l98out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l98out }
-	if accept2('z') { goto l101 }
+	if r < '0' {
+		goto l98out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l98out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l98out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l98out:
 	return id, length
 l101:
 	id, length = 9, pos
-	if r < '0' { goto l102out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l102out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l102out }
-	if accept2('z') { goto l101 }
+	if r < '0' {
+		goto l102out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l102out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l102out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l102out:
 	return id, length
 l105:
-	if accept('`') { goto l110 }
-	if accept2('_') { goto l112 }
-	if r < 'a' { goto l107out }
-	if accept2('\U0010ffff') { goto l112 }
+	if accept('`') {
+		goto l110
+	}
+	if accept2('_') {
+		goto l112
+	}
+	if r < 'a' {
+		goto l107out
+	}
+	if accept2('\U0010ffff') {
+		goto l112
+	}
 l107out:
 	return id, length
 l110:
 	id, length = 7, pos
 	return id, length
 l112:
-	if accept('`') { goto l110 }
-	if accept2('_') { goto l112 }
-	if r < 'a' { goto l114out }
-	if accept2('\U0010ffff') { goto l112 }
+	if accept('`') {
+		goto l110
+	}
+	if accept2('_') {
+		goto l112
+	}
+	if r < 'a' {
+		goto l114out
+	}
+	if accept2('\U0010ffff') {
+		goto l112
+	}
 l114out:
 	return id, length
 l117:
 	id, length = 9, pos
-	if accept('a') { goto l123 }
-	if r < '0' { goto l120out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l120out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'b' { goto l120out }
-	if accept2('z') { goto l101 }
+	if accept('a') {
+		goto l123
+	}
+	if r < '0' {
+		goto l120out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l120out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'b' {
+		goto l120out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l120out:
 	return id, length
 l123:
 	id, length = 9, pos
-	if accept('l') { goto l129 }
-	if r < '0' { goto l126out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l126out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l126out }
-	if accept2('k') { goto l101 }
-	if r < 'm' { goto l126out }
-	if accept2('z') { goto l101 }
+	if accept('l') {
+		goto l129
+	}
+	if r < '0' {
+		goto l126out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l126out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l126out
+	}
+	if accept2('k') {
+		goto l101
+	}
+	if r < 'm' {
+		goto l126out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l126out:
 	return id, length
 l129:
 	id, length = 9, pos
-	if accept('s') { goto l135 }
-	if r < '0' { goto l132out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l132out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l132out }
-	if accept2('r') { goto l101 }
-	if r < 't' { goto l132out }
-	if accept2('z') { goto l101 }
+	if accept('s') {
+		goto l135
+	}
+	if r < '0' {
+		goto l132out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l132out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l132out
+	}
+	if accept2('r') {
+		goto l101
+	}
+	if r < 't' {
+		goto l132out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l132out:
 	return id, length
 l135:
 	id, length = 9, pos
-	if accept('e') { goto l141 }
-	if r < '0' { goto l138out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l138out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l138out }
-	if accept2('d') { goto l101 }
-	if r < 'f' { goto l138out }
-	if accept2('z') { goto l101 }
+	if accept('e') {
+		goto l141
+	}
+	if r < '0' {
+		goto l138out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l138out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l138out
+	}
+	if accept2('d') {
+		goto l101
+	}
+	if r < 'f' {
+		goto l138out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l138out:
 	return id, length
 l141:
 	id, length = 2, pos
-	if r < '0' { goto l142out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l142out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l142out }
-	if accept2('z') { goto l101 }
+	if r < '0' {
+		goto l142out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l142out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l142out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l142out:
 	return id, length
 l145:
 	id, length = 9, pos
-	if accept('r') { goto l151 }
-	if r < '0' { goto l148out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l148out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l148out }
-	if accept2('q') { goto l101 }
-	if r < 's' { goto l148out }
-	if accept2('z') { goto l101 }
+	if accept('r') {
+		goto l151
+	}
+	if r < '0' {
+		goto l148out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l148out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l148out
+	}
+	if accept2('q') {
+		goto l101
+	}
+	if r < 's' {
+		goto l148out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l148out:
 	return id, length
 l151:
 	id, length = 9, pos
-	if accept('u') { goto l157 }
-	if r < '0' { goto l154out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l154out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l154out }
-	if accept2('t') { goto l101 }
-	if r < 'v' { goto l154out }
-	if accept2('z') { goto l101 }
+	if accept('u') {
+		goto l157
+	}
+	if r < '0' {
+		goto l154out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l154out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l154out
+	}
+	if accept2('t') {
+		goto l101
+	}
+	if r < 'v' {
+		goto l154out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l154out:
 	return id, length
 l157:
 	id, length = 9, pos
-	if accept('e') { goto l163 }
-	if r < '0' { goto l160out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l160out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l160out }
-	if accept2('d') { goto l101 }
-	if r < 'f' { goto l160out }
-	if accept2('z') { goto l101 }
+	if accept('e') {
+		goto l163
+	}
+	if r < '0' {
+		goto l160out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l160out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l160out
+	}
+	if accept2('d') {
+		goto l101
+	}
+	if r < 'f' {
+		goto l160out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l160out:
 	return id, length
 l163:
 	id, length = 2, pos
-	if r < '0' { goto l164out }
-	if accept2('9') { goto l101 }
-	if r < 'A' { goto l164out }
-	if accept2('Z') { goto l101 }
-	if accept('_') { goto l101 }
-	if r < 'a' { goto l164out }
-	if accept2('z') { goto l101 }
+	if r < '0' {
+		goto l164out
+	}
+	if accept2('9') {
+		goto l101
+	}
+	if r < 'A' {
+		goto l164out
+	}
+	if accept2('Z') {
+		goto l101
+	}
+	if accept('_') {
+		goto l101
+	}
+	if r < 'a' {
+		goto l164out
+	}
+	if accept2('z') {
+		goto l101
+	}
 l164out:
 	return id, length
 l167:
@@ -418,10 +762,9 @@ l171:
 	return id, length
 }
 
-
 // Scan is used internally from Parse.
-func(p *Parser) Scan() (r scanner.Token) {
-		return p.sc.Scan()
+func (p *Parser) Scan() (r scanner.Token) {
+	return p.sc.Scan()
 }
 
 // init initalizes 'p' with content in 'src', assuming it comes from 'name'.
@@ -439,12 +782,8 @@ func (p *Parser) init(name string, src []byte) (err error) {
 	return nil
 }
 
-
-
 // Assignment grammar:
 //
-//	
-//	
 //	# Statements
 //	Assignment      = "=" Values br .
 //
@@ -459,43 +798,42 @@ func (p *Parser) init(name string, src []byte) (err error) {
 //			shift and goto state 3
 //	State 3
 //		Accept
+//
 // Assignment is used internally from Parse.
 func (p *Parser) Assignment() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Assignment), 0)
-// state0:
-accept, errorSet = false, 1
-switch Symbol(p.tok.Ch) {
-	case  TOK_003d:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Assignment), 0)
+	// state0:
+	accept, errorSet = false, 1
+	switch Symbol(p.tok.Ch) {
+	case TOK_003d:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 3
-switch Symbol(p.tok.Ch) {
-	case  boolean, number, str, word, Value, Word, Number, Boolean, String:
-r = p.add(r, p.Values())
-goto state2
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet = false, 3
+	switch Symbol(p.tok.Ch) {
+	case boolean, number, str, word, Value, Word, Number, Boolean, String:
+		r = p.add(r, p.Values())
+		goto state2
+	}
+	return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 8
-switch Symbol(p.tok.Ch) {
-	case  br:
-r = append(r, p.shift())
-goto state3
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet = false, 8
+	switch Symbol(p.tok.Ch) {
+	case br:
+		r = append(r, p.shift())
+		goto state3
+	}
+	return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // Body grammar:
 //
-//	
 //	Body            = lbrace [ Doc ] rbrace .
 //
 //	State 0
@@ -511,46 +849,45 @@ return p.stop(r, accept, errorSet)
 //	State 3
 //		on  rbrace
 //			shift and goto state 2
+//
 // Body is used internally from Parse.
 func (p *Parser) Body() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Body), 0)
-// state0:
-accept, errorSet = false, 9
-switch Symbol(p.tok.Ch) {
-	case  lbrace:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Body), 0)
+	// state0:
+	accept, errorSet = false, 9
+	switch Symbol(p.tok.Ch) {
+	case lbrace:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 11
-switch Symbol(p.tok.Ch) {
-	case  rbrace:
-r = append(r, p.shift())
-goto state2
-	case  word, Stmt, Word:
-r = p.add(r, p.Doc())
-goto state3
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet = false, 11
+	switch Symbol(p.tok.Ch) {
+	case rbrace:
+		r = append(r, p.shift())
+		goto state2
+	case word, Stmt, Word:
+		r = p.add(r, p.Doc())
+		goto state3
+	}
+	return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 12
-switch Symbol(p.tok.Ch) {
-	case  rbrace:
-r = append(r, p.shift())
-goto state2
+	accept, errorSet = false, 12
+	switch Symbol(p.tok.Ch) {
+	case rbrace:
+		r = append(r, p.shift())
+		goto state2
+	}
+	return p.stop(r, accept, errorSet)
 }
-return p.stop(r, accept, errorSet)
-}
-
 
 // Boolean grammar:
 //
-//	
 //	Boolean         = boolean .
 //
 //	State 0
@@ -558,27 +895,26 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //	State 1
 //		Accept
+//
 // Boolean is used internally from Parse.
 func (p *Parser) Boolean() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Boolean), 0)
-// state0:
-accept, errorSet = false, 6
-switch Symbol(p.tok.Ch) {
-	case  boolean:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Boolean), 0)
+	// state0:
+	accept, errorSet = false, 6
+	switch Symbol(p.tok.Ch) {
+	case boolean:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // Command grammar:
 //
-//	
 //	Command         = [Values] ( Body | br ) .
 //
 //	State 0
@@ -595,40 +931,40 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //		on  lbrace
 //			call Body and goto state 1
+//
 // Command is used internally from Parse.
 func (p *Parser) Command() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Command), 0)
-// state0:
-accept, errorSet = false, 2
-switch Symbol(p.tok.Ch) {
-	case  br:
-r = append(r, p.shift())
-goto state1
-	case  boolean, number, str, word, Value, Word, Number, Boolean, String:
-r = p.add(r, p.Values())
-goto state2
-	case  lbrace:
-r = p.add(r, p.Body())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Command), 0)
+	// state0:
+	accept, errorSet = false, 2
+	switch Symbol(p.tok.Ch) {
+	case br:
+		r = append(r, p.shift())
+		goto state1
+	case boolean, number, str, word, Value, Word, Number, Boolean, String:
+		r = p.add(r, p.Values())
+		goto state2
+	case lbrace:
+		r = p.add(r, p.Body())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 7
-switch Symbol(p.tok.Ch) {
-	case  br:
-r = append(r, p.shift())
-goto state1
-	case  lbrace:
-r = p.add(r, p.Body())
-goto state1
+	accept, errorSet = false, 7
+	switch Symbol(p.tok.Ch) {
+	case br:
+		r = append(r, p.shift())
+		goto state1
+	case lbrace:
+		r = p.add(r, p.Body())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 }
-return p.stop(r, accept, errorSet)
-}
-
 
 // Config grammar:
 //
@@ -639,34 +975,33 @@ return p.stop(r, accept, errorSet)
 //			call Doc and goto state 1
 //	State 1
 //		Accept
+//
 // Config is used internally from Parse.
 func (p *Parser) Config() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Config), 0)
-// state0:
-accept, errorSet = false, 14
-switch Symbol(p.tok.Ch) {
-	case  word, Stmt, Word:
-r = p.add(r, p.Doc())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Config), 0)
+	// state0:
+	accept, errorSet = false, 14
+	switch Symbol(p.tok.Ch) {
+	case word, Stmt, Word:
+		r = p.add(r, p.Doc())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
+	accept, errorSet = true, 0
 	if accept = accept && p.eof; accept {
- 			r = append(r, p.shift())
- 		}
- 	r[1] = int32(len(r)-2)
- 	if !accept {
- 	p.err(p.tok.Position(), "%q [%s]: expected %v", p.tok.Src(), Symbol(p.tok.Ch), errorSets[errorSet])
- }
-return r
+		r = append(r, p.shift())
+	}
+	r[1] = int32(len(r) - 2)
+	if !accept {
+		p.err(p.tok.Position(), "%q [%s]: expected %v", p.tok.Src(), Symbol(p.tok.Ch), errorSets[errorSet])
+	}
+	return r
 }
-
 
 // Doc grammar:
 //
-//	
 //	Doc             = Stmt { Stmt } .
 //
 //	State 0
@@ -676,32 +1011,31 @@ return r
 //		Accept
 //		on  word, Word
 //			call Stmt and goto state 1
+//
 // Doc is used internally from Parse.
 func (p *Parser) Doc() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Doc), 0)
-// state0:
-accept, errorSet = false, 15
-switch Symbol(p.tok.Ch) {
-	case  word, Word:
-r = p.add(r, p.Stmt())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Doc), 0)
+	// state0:
+	accept, errorSet = false, 15
+	switch Symbol(p.tok.Ch) {
+	case word, Word:
+		r = p.add(r, p.Stmt())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 15
-switch Symbol(p.tok.Ch) {
-	case  word, Word:
-r = p.add(r, p.Stmt())
-goto state1
+	accept, errorSet = true, 15
+	switch Symbol(p.tok.Ch) {
+	case word, Word:
+		r = p.add(r, p.Stmt())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 }
-return p.stop(r, accept, errorSet)
-}
-
 
 // Number grammar:
 //
-//	
 //	Number          = number .
 //
 //	State 0
@@ -709,27 +1043,26 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //	State 1
 //		Accept
+//
 // Number is used internally from Parse.
 func (p *Parser) Number() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Number), 0)
-// state0:
-accept, errorSet = false, 10
-switch Symbol(p.tok.Ch) {
-	case  number:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Number), 0)
+	// state0:
+	accept, errorSet = false, 10
+	switch Symbol(p.tok.Ch) {
+	case number:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // Stmt grammar:
 //
-//	
 //	Stmt            = Word (Assignment | Command) .
 //
 //	State 0
@@ -742,38 +1075,37 @@ return p.stop(r, accept, errorSet)
 //			call Command and goto state 2
 //	State 2
 //		Accept
+//
 // Stmt is used internally from Parse.
 func (p *Parser) Stmt() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Stmt), 0)
-// state0:
-accept, errorSet = false, 16
-switch Symbol(p.tok.Ch) {
-	case  word:
-r = p.add(r, p.Word())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Stmt), 0)
+	// state0:
+	accept, errorSet = false, 16
+	switch Symbol(p.tok.Ch) {
+	case word:
+		r = p.add(r, p.Word())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 0
-switch Symbol(p.tok.Ch) {
-	case  TOK_003d:
-r = p.add(r, p.Assignment())
-goto state2
-	case  boolean, br, lbrace, number, str, word, Values, Value, Body, Word, Number, Boolean, String:
-r = p.add(r, p.Command())
-goto state2
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet = false, 0
+	switch Symbol(p.tok.Ch) {
+	case TOK_003d:
+		r = p.add(r, p.Assignment())
+		goto state2
+	case boolean, br, lbrace, number, str, word, Values, Value, Body, Word, Number, Boolean, String:
+		r = p.add(r, p.Command())
+		goto state2
+	}
+	return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // String grammar:
 //
-//	
 //	String          = str .
 //
 //	State 0
@@ -781,27 +1113,26 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //	State 1
 //		Accept
+//
 // String is used internally from Parse.
 func (p *Parser) String() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(String), 0)
-// state0:
-accept, errorSet = false, 13
-switch Symbol(p.tok.Ch) {
-	case  str:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(String), 0)
+	// state0:
+	accept, errorSet = false, 13
+	switch Symbol(p.tok.Ch) {
+	case str:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // Value grammar:
 //
-//	
 //	Value           = Word | String | Number | Boolean .
 //
 //	State 0
@@ -815,37 +1146,35 @@ return p.stop(r, accept, errorSet)
 //			call String and goto state 1
 //	State 1
 //		Accept
+//
 // Value is used internally from Parse.
 func (p *Parser) Value() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Value), 0)
-// state0:
-accept, errorSet = false, 5
-switch Symbol(p.tok.Ch) {
-	case  word:
-r = p.add(r, p.Word())
-goto state1
-	case  number:
-r = p.add(r, p.Number())
-goto state1
-	case  boolean:
-r = p.add(r, p.Boolean())
-goto state1
-	case  str:
-r = p.add(r, p.String())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Value), 0)
+	// state0:
+	accept, errorSet = false, 5
+	switch Symbol(p.tok.Ch) {
+	case word:
+		r = p.add(r, p.Word())
+		goto state1
+	case number:
+		r = p.add(r, p.Number())
+		goto state1
+	case boolean:
+		r = p.add(r, p.Boolean())
+		goto state1
+	case str:
+		r = p.add(r, p.String())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 // Values grammar:
 //
-//	
-//	
 //	# Value types
 //	Values          = Value {Value} .
 //
@@ -856,33 +1185,31 @@ return p.stop(r, accept, errorSet)
 //		Accept
 //		on  boolean, number, str, word, Word, Number, Boolean, String
 //			call Value and goto state 1
+//
 // Values is used internally from Parse.
 func (p *Parser) Values() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Values), 0)
-// state0:
-accept, errorSet = false, 4
-switch Symbol(p.tok.Ch) {
-	case  boolean, number, str, word, Word, Number, Boolean, String:
-r = p.add(r, p.Value())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Values), 0)
+	// state0:
+	accept, errorSet = false, 4
+	switch Symbol(p.tok.Ch) {
+	case boolean, number, str, word, Word, Number, Boolean, String:
+		r = p.add(r, p.Value())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 4
-switch Symbol(p.tok.Ch) {
-	case  boolean, number, str, word, Word, Number, Boolean, String:
-r = p.add(r, p.Value())
-goto state1
+	accept, errorSet = true, 4
+	switch Symbol(p.tok.Ch) {
+	case boolean, number, str, word, Word, Number, Boolean, String:
+		r = p.add(r, p.Value())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 }
-return p.stop(r, accept, errorSet)
-}
-
 
 // Word grammar:
 //
-//	
-//	
 //	# Atoms
 //	Word            = word .
 //
@@ -891,23 +1218,23 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //	State 1
 //		Accept
+//
 // Word is used internally from Parse.
 func (p *Parser) Word() (r []int32) {
-		accept, errorSet := false, 0
-		r = append(p.get(), -int32(Word), 0)
-// state0:
-accept, errorSet = false, 16
-switch Symbol(p.tok.Ch) {
-	case  word:
-r = append(r, p.shift())
-goto state1
-}
-return p.stop(r, accept, errorSet)
+	accept, errorSet := false, 0
+	r = append(p.get(), -int32(Word), 0)
+	// state0:
+	accept, errorSet = false, 16
+	switch Symbol(p.tok.Ch) {
+	case word:
+		r = append(r, p.shift())
+		goto state1
+	}
+	return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 0
-return p.stop(r, accept, errorSet)
+	accept, errorSet = true, 0
+	return p.stop(r, accept, errorSet)
 }
-
 
 func (p *Parser) shift() (r int32) {
 	r = p.tokIndex
@@ -989,4 +1316,3 @@ func (p *Parser) err(pos token.Position, s string, args ...any) {
 		panic(p.sc.Err())
 	}
 }
-

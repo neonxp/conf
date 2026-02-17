@@ -8,7 +8,7 @@ import (
 	"go.neonxp.ru/conf/model"
 )
 
-func ToDoc(config *Node) (model.Doc, error) {
+func ToDoc(config *Node) (*model.Doc, error) {
 	if len(config.Children) < 1 {
 		return nil, fmt.Errorf("invalid ast tree")
 	}
@@ -18,24 +18,22 @@ func ToDoc(config *Node) (model.Doc, error) {
 	return processDoc(doc), nil
 }
 
-func processDoc(docNode *Node) model.Doc {
-	doc := make(model.Doc, len(docNode.Children))
-	for i, stmt := range docNode.Children {
-		doc[i] = processStmt(stmt)
+func processDoc(docNode *Node) *model.Doc {
+	doc := model.New(len(docNode.Children))
+	for _, stmt := range docNode.Children {
+		processStmt(doc, stmt)
 	}
 	return doc
 }
 
-func processStmt(stmt *Node) any {
+func processStmt(doc *model.Doc, stmt *Node) {
 	ident := extractIdent(stmt.Children[0])
 	nodeBody := stmt.Children[1]
 	switch nodeBody.Symbol {
 	case parser.Command:
-		return processCommand(ident, nodeBody)
+		doc.AppendCommand(processCommand(ident, nodeBody))
 	case parser.Assignment:
-		return processAssignment(ident, nodeBody)
-	default:
-		return nil
+		doc.AppendAssignment(processAssignment(ident, nodeBody))
 	}
 }
 
