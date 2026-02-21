@@ -19,7 +19,7 @@ func chainLookup(lookups ...WordLookup) WordLookup {
 				return v
 			}
 		}
-		return string(word)
+		return ""
 	}
 }
 
@@ -46,4 +46,11 @@ func LookupSubst(subst map[Word]string) WordLookup {
 		}
 		return ""
 	}
+}
+
+// Origin возвращает просто строковое представления слова. Если поставить в
+// конце цепочки - то вместо пустоты (если предыдущие фильтры не сработали)
+// вернётся оригинальное имя слова.
+func Origin(word Word) string {
+	return string(word)
 }
