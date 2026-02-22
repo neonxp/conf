@@ -4,13 +4,24 @@ import (
 	"fmt"
 
 	"go.neonxp.ru/conf"
+	"go.neonxp.ru/conf/visitor"
 )
 
 func main() {
-	out, err := conf.LoadFile("./file.conf")
+	cfg := conf.New()
+	if err := cfg.LoadFile("./example/file2.conf"); err != nil {
+		panic(err)
+	}
+
+	pr := visitor.NewDefault()
+	if err := cfg.Process(pr); err != nil {
+		panic(err)
+	}
+
+	tok, err := pr.Get("telegram.token")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println(out)
+	fmt.Println(tok.String())
 }

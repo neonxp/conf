@@ -8,7 +8,7 @@ import (
 	"go.neonxp.ru/conf/model"
 )
 
-func ToDoc(config *Node) (*model.Doc, error) {
+func ToDoc(config *Node) (model.Body, error) {
 	if len(config.Children) < 1 {
 		return nil, fmt.Errorf("invalid ast tree")
 	}
@@ -18,31 +18,31 @@ func ToDoc(config *Node) (*model.Doc, error) {
 	return processDoc(doc), nil
 }
 
-func processDoc(docNode *Node) *model.Doc {
-	doc := model.New(len(docNode.Children))
+func processDoc(docNode *Node) model.Body {
+	doc := make(model.Body, 0, len(docNode.Children))
 	for _, stmt := range docNode.Children {
-		processStmt(doc, stmt)
+		processStmt(&doc, stmt)
 	}
 	return doc
 }
 
-func processStmt(doc *model.Doc, stmt *Node) {
+func processStmt(doc *model.Body, stmt *Node) {
 	ident := extractIdent(stmt.Children[0])
 	nodeBody := stmt.Children[1]
 	switch nodeBody.Symbol {
 	case parser.Command:
-		doc.AppendCommand(processCommand(ident, nodeBody))
+		*doc = append(*doc, processDirective(ident, nodeBody))
 	case parser.Assignment:
-		doc.AppendAssignment(processAssignment(ident, nodeBody))
+		*doc = append(*doc, processSetting(ident, nodeBody))
 	}
 }
 
-func processCommand(ident string, command *Node) *model.Command {
-	result := &model.Command{
+func processDirective(ident string, directive *Node) *model.Directive {
+	result := &model.Directive{
 		Name: ident,
 	}
 
-	for _, child := range command.Children {
+	for _, child := range directive.Children {
 		// Can be arguments OR body OR both
 		switch child.Symbol {
 		case parser.Values:
@@ -56,10 +56,10 @@ func processCommand(ident string, command *Node) *model.Command {
 	return result
 }
 
-func processAssignment(ident string, assignment *Node) *model.Assignment {
-	result := &model.Assignment{
+func processSetting(ident string, setting *Node) *model.Setting {
+	result := &model.Setting{
 		Key:   ident,
-		Value: extractValues(assignment.Children[1]), // Children[0] = '=', Children[1] = Values, Children[2] = ';'
+		Value: extractValues(setting.Children[1]), // Children[0] = '=', Children[1] = Values, Children[2] = ';'
 	}
 
 	return result

@@ -1,6 +1,6 @@
 # conf
 
-Go библиотека для чтения конфигурационных файлов в формате `.conf`.
+Go библиотека для парсинга конфигурационных файлов `.conf`.
 
 ## Установка
 
@@ -10,17 +10,15 @@ go get go.neonxp.ru/conf
 
 ## Особенности формата
 
-- Простые присваивания: `key = value;`
-- Строковые значения: `"text"` или `'text'`
-- Многострочные строки: ``` `text` ```
-- Числовые значения: целые и дробные, включая отрицательные
-- Булевы значения: `true` / `false`
-- Директивы/команды: `directive arg1 arg2;`
-- Групповые директивы с блоками кода: `directive { ... }`
-- Комментарии от `#` до конца строки
-- Поддержка кириллицы и UTF-8
+- **Присваивания**: `key = value;`
+- **Типы значений**: строки (двойные/одинарные кавычки, backticks), числа (целые/дробные), булевы значения
+- **Директивы**: `directive arg1 arg2;`
+- **Блочные директивы**: `directive { ... }`
+- **Комментарии**: `#` до конца строки
+- **UTF-8**: включая кириллицу
+- **Подстановка переменных окружения**: `$VAR`
 
-## Пример использования
+## Быстрый старт
 
 ```go
 package main
@@ -28,86 +26,163 @@ package main
 import (
     "fmt"
     "go.neonxp.ru/conf"
+    "go.neonxp.ru/conf/model"
+    "go.neonxp.ru/conf/visitor"
 )
 
 func main() {
-    doc, err := conf.LoadFile("./config.conf")
-    if err != nil {
+    cfg := conf.New()
+    if err := cfg.LoadFile("config.conf"); err != nil {
         panic(err)
     }
 
-    // Получение значения по ключу
-    values := doc.Get("my_key")
-    fmt.Println(values)
+    v := visitor.NewDefault()
+    if err := cfg.Process(v); err != nil {
+        panic(err)
+    }
 
-    // Получение команд по имени
-    commands := doc.Commands("directivename")
-    fmt.Println(commands)
+    // Доступ по пути с точечной нотацией
+    val, err := v.Get("server.host")
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(val.String())  // localhost
 
-    // Все переменные
-    vars := doc.Vars()
-
-    // Все элементы документа
-    items := doc.Items()
+    port, err := v.Get("server.port")
+    fmt.Println(port.Int())    // 8080
 }
 ```
 
 ## Пример конфигурационного файла
 
 ```conf
-# Пример конфигурации
+# Переменная окружения: db_file = $HOME "/app/data.db";
 
-# Простое присваивание
-simple_key = value;
+# Простые присваивания
+rss = "https://neonxp.ru/feed/";
+host = "localhost";
+port = 8080;
+debug = true;
 
-# Многострочное присваивание
-string_key =
-    "value"
-    'string';
+# Директивы с аргументами
+telegram "bot123" "-1003888840756" {
+    token = "token_value";
+    admin_chat = "@admin";
+}
 
-# Многострочные строки (backticks)
-multiline_string = `
-    multiline
-    string
-    123
-`;
+# Вложенные блоки
+server {
+    host = "localhost";
+    port = 8080;
 
-# Числа и булевы значения
-int_key = -123.456;
-bool_key = true;
+    ssl {
+        enabled = true;
+        cert = "/etc/ssl/cert.pem";
+    }
 
-# Директивы
-expression1 argument1 "argument2" 123;
-
-# Групповая директива
-group_directive_without_arguments {
-    expression1 argument2 "string" 123 true;
-    expression2 argument3 "string111" 123321 false;
-
-    children_group "some argument" {
-        # Вложенная группа
+    middleware "auth" {
+        enabled = true;
+        secret = "$JWT_SECRET";
     }
 }
 
-# Групповая директива с аргументами
-group_directive_with_argument "argument1" 'argument2' {
-    child_val = "children value";
-}
+# Многострочные строки
+template = `
+    <!DOCTYPE html>
+    <html>
+        <body>Hello</body>
+    </html>
+`;
 ```
 
 ## API
 
-### Функции
+### Загрузка конфигурации
 
-- `LoadFile(filename string) (*model.Doc, error)` - загрузка конфигурации из файла
-- `Load(name string, input []byte) (*model.Doc, error)` - парсинг конфигурации из байтов
+```go
+cfg := conf.New()
 
-### Методы `*model.Doc`
+// Из файла
+cfg.LoadFile("config.conf")
 
-- `Get(key string) Values` - получить значения по ключу
-- `Commands(name string) Commands` - получить команды по имени
-- `Vars() map[string]Values` - получить все переменные
-- `Items() []any` - получить все элементы документа
+// Из памяти
+cfg.Load("inline", []byte("key = value;"))
+```
+
+### Обработка через Visitor
+
+Библиотека использует паттерн Visitor для обхода конфигурации:
+
+```go
+type Visitor interface {
+    VisitDirective(ident string, args Values, body Body) error
+    VisitSetting(key string, values Values) error
+}
+```
+
+### Get-методы на Values
+
+| Метод | Описание |
+|-------|----------|
+| `String()` | Строковое представление через пробел |
+| `Int()` | Преобразование в int (одно значение) |
+| `BuildString(lookups...)` | Сборка строки с подстановками |
+
+### Подстановка переменных окружения
+
+```go
+vals, _ := v.Get("db_file")
+path := vals.BuildString(model.LookupEnv)
+// $HOME → "/home/user", результат: "/home/user/app/data.db"
+```
+
+### Кастомные подстановки
+
+```go
+substitutions := map[model.Word]string{
+    "APP_DIR":  "/opt/myapp",
+    "LOG_LEVEL": "debug",
+}
+
+path := vals.BuildString(model.LookupSubst(substitutions), model.Origin)
+```
+
+## Реализация собственного Visitor
+
+```go
+type MyVisitor struct{}
+
+func (m *MyVisitor) VisitDirective(ident string, args model.Values, body model.Body) error {
+    fmt.Printf("Directive: %s, args: %s\n", ident, args.String())
+    return body.Execute(m) // Рекурсивный обход тела
+}
+
+func (m *MyVisitor) VisitSetting(key string, values model.Values) error {
+    fmt.Printf("Setting: %s = %s\n", key, values.String())
+    return nil
+}
+```
+
+## Грамматика (EBNF)
+
+```
+Config     = Doc .
+Doc        = Stmt { Stmt } .
+Stmt       = Word ( Assignment | Command ) .
+
+Assignment = "=" Values br .
+Command    = [Values] ( Body | br ) .
+
+Values     = Value { Value } .
+Value      = Word | String | Number | Boolean .
+Body       = "{" [ Doc ] "}" .
+
+Word       = word (alpha | "$" | "_") {alpha | number | "$" | "_"} .
+String     = `"[^"]*"` | `'[^']*'` | '`' { `[^`]' } '`' .
+Number     = `-?[0-9]+(\.[0-9]+)?` .
+Boolean    = `true` | `false` .
+br         = ";" .
+```
 
 ## Требования
 
@@ -115,4 +190,18 @@ group_directive_with_argument "argument1" 'argument2' {
 
 ## Лицензия
 
-См. файл [LICENSE](LICENSE)
+Этот проект лицензирован в соответствии с GNU General Public License версии 3
+(GPLv3). Подробности смотрите в файле [LICENSE](LICENSE).
+
+```
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2026 Alexander NeonXP Kiryukhin <i@neonxp.ru>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+```
+
+## Автор
+
+- Александр Кирюхин <i@neonxp.ru>

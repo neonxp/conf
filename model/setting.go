@@ -1,6 +1,6 @@
 package model
 
-type Assignment struct {
+type Setting struct {
 	Key   string
 	Value Values
 }

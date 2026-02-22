@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	"go.neonxp.ru/conf"
+	"go.neonxp.ru/conf/visitor"
 )
 
-func ExampleLoad() {
+func ExampleNew() {
 	config := `
 		key = "value";
 		group "test" {
@@ -14,17 +15,37 @@ func ExampleLoad() {
 		}
 	`
 
-	cfg, err := conf.Load("example", []byte(config))
+	cfg := conf.New()
+
+	if err := cfg.Load("example", []byte(config)); err != nil {
+		panic(err)
+	}
+
+	pr := visitor.NewDefault()
+	if err := cfg.Process(pr); err != nil {
+		panic(err)
+	}
+
+	val1, err := pr.Get("key")
+	if err != nil {
+		panic(err)
+	}
+	val2, err := pr.Get("group.key")
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("key =", cfg.Get("key")[0])
-	group := cfg.Commands("group")
-	for _, gr := range group {
-		fmt.Println("key =", gr.Body.Get("key")[0])
+	val3, err := pr.Get("group")
+	if err != nil {
+		panic(err)
 	}
+
+	fmt.Println("key =", val1.String())
+	fmt.Println("group.key =", val2.String())
+	fmt.Println("group args =", val3.String())
+
 	// Output:
 	// key = value
-	// key = 123
+	// group.key = 123
+	// group args = test
 }

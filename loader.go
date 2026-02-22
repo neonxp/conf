@@ -9,28 +9,44 @@ import (
 	"go.neonxp.ru/conf/model"
 )
 
-func LoadFile(filename string) (*model.Doc, error) {
-	content, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("failed load file: %w", err)
+func New() *Conf {
+	return &Conf{
+		root: model.Body{},
 	}
-
-	return Load(filename, content)
 }
 
-func Load(name string, input []byte) (*model.Doc, error) {
+type Conf struct {
+	root model.Body
+}
+
+func (c *Conf) LoadFile(filename string) error {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return fmt.Errorf("failed load file: %w", err)
+	}
+
+	return c.Load(filename, content)
+}
+
+func (c *Conf) Load(name string, input []byte) error {
 	p := &parser.Parser{}
 	astSlice, err := p.Parse(name, input)
 	if err != nil {
-		return nil, fmt.Errorf("failed parse conf content: %w", err)
+		return fmt.Errorf("failed parse conf content: %w", err)
 	}
 
 	astTree := ast.Parse(p, astSlice)
 
 	doc, err := ast.ToDoc(astTree[0])
 	if err != nil {
-		return nil, fmt.Errorf("failed build Doc: %w", err)
+		return fmt.Errorf("failed build Doc: %w", err)
 	}
 
-	return doc, nil
+	c.root = doc
+
+	return nil
+}
+
+func (c *Conf) Process(visitor model.Visitor) error {
+	return c.root.Execute(visitor)
 }
