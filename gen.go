@@ -1,3 +1,3 @@
 package conf
 
-//go:generate egg -o ./internal/parser/parser.go -package parser -start Config config.ebnf
+//go:generate go tool github.com/mna/pigeon -optimize-grammar -optimize-parser -nolint -o ./parser/parser.go ./parser/grammar.peg

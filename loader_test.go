@@ -2,50 +2,40 @@ package conf_test
 
 import (
 	"fmt"
+	"log"
 
 	"go.neonxp.ru/conf"
-	"go.neonxp.ru/conf/visitor"
 )
 
-func ExampleNew() {
-	config := `
-		key = "value";
-		group "test" {
-			key = 123;
+func ExampleLoad() {
+	test := `
+		some directive;
+		group1 param1 {
+			group2 param2 {
+				group3 param3 {
+					key value;
+				}
+			}
 		}
 	`
-
-	cfg := conf.New()
-
-	if err := cfg.Load("example", []byte(config)); err != nil {
-		panic(err)
-	}
-
-	pr := visitor.NewDefault()
-	if err := cfg.Process(pr); err != nil {
-		panic(err)
-	}
-
-	val1, err := pr.Get("key")
+	result, err := conf.Load("test", []byte(test))
 	if err != nil {
-		panic(err)
-	}
-	val2, err := pr.Get("group.key")
-	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
-	val3, err := pr.Get("group")
-	if err != nil {
-		panic(err)
-	}
+	fmt.Println(
+		result.Get("group1").
+			Group.Get("group2").
+			Group.Get("group3").
+			Group.Get("key").Value(),
+	) // → value
 
-	fmt.Println("key =", val1.String())
-	fmt.Println("group.key =", val2.String())
-	fmt.Println("group args =", val3.String())
+	fmt.Println(
+		result.Get("group1").
+			Group.Get("group2").
+			Group.Get("group3").Value(),
+	) // → param3
 
-	// Output:
-	// key = value
-	// group.key = 123
-	// group args = test
+	// Output: value
+	// param3
 }

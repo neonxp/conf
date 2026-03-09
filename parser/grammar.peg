@@ -1,0 +1,126 @@
+{
+    // Package parser parses conf language.
+    package parser
+
+    import (
+        "strconv"
+        "errors"
+
+        "go.neonxp.ru/conf/model"
+    )
+
+    func toAnySlice(v any) []any {
+        if v == nil {
+            return nil
+        }
+        if v := v.([]any); len(v) == 0 {
+            return nil
+        }
+
+        return v.([]any)
+    }
+}
+
+Config ← _ stmts:( Command* ) EOF {
+    if stmts == nil {
+        return model.Group{}, nil
+    }
+    groupAny := toAnySlice(stmts)
+    groupSl := make(model.Group, len(groupAny))
+    for i, e := range groupAny {
+        groupSl[i] = e.(model.Command)
+    }
+    return groupSl, nil
+}
+
+Group ← '{' _ stmts:( Command* ) _ '}' {
+    if stmts == nil {
+        return model.Group{}, nil
+    }
+    groupAny := toAnySlice(stmts)
+    groupSl := make(model.Group, len(groupAny))
+    for i, e := range groupAny {
+        groupSl[i] = e.(model.Command)
+    }
+    return groupSl, nil
+}
+
+Command ← name:Ident _ args:Args _ {
+    var group model.Group
+    rawArgs := args.([]any)
+    argsSlice := make([]any, 0, len(rawArgs))
+    if len(rawArgs) > 0 {
+        for _, s := range rawArgs {
+            if s == nil {
+                continue
+            }
+            if g, ok := s.(model.Group); ok {
+                group = g
+                continue
+            }
+            if l, ok := s.([]any); ok {
+                l = slices.DeleteFunc(l, func(x any) bool { return x == nil })
+                argsSlice = append(argsSlice, l...)
+            }
+        }
+    }
+    return model.Command{Name: name.(model.Ident), Args: argsSlice, Group: group}, nil
+}
+
+Args ← Values? (Group / EOS)
+
+Values ← vals:Value* { return toAnySlice(vals), nil }
+
+Value ← val:( Ident / String / Number / Boolean ) __ { return val, nil }
+String ← ( '"' DoubleStringChar* '"' / "'" SingleStringChar "'" / '`' RawStringChar* '`' ) {
+    return string(c.text), nil
+}
+
+// Сервисные литералы
+
+// {{{ Строки
+DoubleStringChar ← !( '"' / "\\" / EOL ) SourceChar / "\\" DoubleStringEscape
+SingleStringChar ← !( "'" / "\\" / EOL ) SourceChar / "\\" SingleStringEscape
+RawStringChar ← !'`' SourceChar
+
+DoubleStringEscape ← '"' / CommonEscapeSequence
+SingleStringEscape ← "'" / CommonEscapeSequence
+
+CommonEscapeSequence ← SingleCharEscape / OctalEscape / HexEscape / LongUnicodeEscape / ShortUnicodeEscape
+SingleCharEscape ← 'a' / 'b' / 'n' / 'f' / 'r' / 't' / 'v' / '\\'
+OctalEscape ← OctalDigit OctalDigit OctalDigit
+HexEscape ← 'x' HexDigit HexDigit
+LongUnicodeEscape ← 'U' HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit HexDigit
+ShortUnicodeEscape ← 'u' HexDigit HexDigit HexDigit HexDigit
+
+OctalDigit ← [0-7]
+DecimalDigit ← [0-9]
+HexDigit ← [0-9a-f]i
+SourceChar ← .
+// }}}
+
+// {{{ Числа
+Number ← '-'? Integer ( '.' DecimalDigit+ )? Exponent? { return strconv.ParseFloat(string(c.text), 64) }
+Integer ← '0' / NonZeroDecimalDigit DecimalDigit*
+Exponent ← 'e'i [+-]? DecimalDigit+
+DecimalDigit ← [0-9]
+NonZeroDecimalDigit ← [1-9]
+// }}}
+
+// {{{ Идентификатор
+Ident ← (Alpha / AllowedSpec) (Alpha / AllowedSpec / Number)* { return model.Ident(c.text), nil }
+Alpha ← [a-zA-Z]
+AllowedSpec ← '$' / '@' / '%' / '_' / '-' / '+'
+// }}}
+
+Boolean ← "true" { return true, nil } / "false" { return false, nil }
+
+Comment ← '#' ( ![\r\n] . )*
+__ ← ( Whitespace / EOL / Comment )*
+_ ← ( [ \t\r\n] / Comment )*
+
+Whitespace ← [ \t\r]
+EOL ← '\n'
+EOS ← __ ';' { return nil, nil } / _ Comment? EOL { return nil, nil } / __ EOF { return nil, nil }
+
+EOF ← !.
