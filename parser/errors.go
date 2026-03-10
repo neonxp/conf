@@ -1,3 +1,20 @@
+// Package parser parses conf language.
+//
+// This file is part of conf library.
+// Copyright (C) 2026  Alexander NeonXP Kiryukhin <i@neonxp.ru>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package parser
 
 import (
@@ -39,9 +56,8 @@ func CaretErrors(err error, input string) error {
 	if el, ok := err.(ErrorLister); ok {
 		var buffer bytes.Buffer
 		for _, e := range el.Errors() {
-			err1, shouldReturn := caretError(e, input, buffer, err)
-			if shouldReturn {
-				return err1
+			if err := caretError(e, input); err != nil {
+				buffer.WriteString(err.Error())
 			}
 		}
 		return errors.New(buffer.String())
@@ -49,8 +65,8 @@ func CaretErrors(err error, input string) error {
 	return err
 }
 
-func caretError(e error, input string, buffer bytes.Buffer, err error) (error, bool) {
-	if parserErr, ok := e.(ParserError); ok {
+func caretError(err error, input string) error {
+	if parserErr, ok := err.(ParserError); ok {
 		_, col, off := parserErr.Pos()
 		line := extractLine(input, off)
 		if col >= len(line) {
@@ -69,13 +85,9 @@ func caretError(e error, input string, buffer bytes.Buffer, err error) (error, b
 				pos += 7
 			}
 		}
-		fmt.Fprintf(&buffer, "%s\n%s\n%s\n", line, strings.Repeat(" ", pos)+"^", err.Error())
-
-		return err, true
-	} else {
-		return err, true
+		return fmt.Errorf("%s\n%s\n%w", line, strings.Repeat(" ", pos)+"^", err)
 	}
-	return nil, false
+	return err
 }
 
 func extractLine(input string, initPos int) string {

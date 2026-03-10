@@ -17,4 +17,32 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 package model
 
-type Ident string
+import "iter"
+
+type Group []Directive
+
+// Get returns first directive with given name.
+func (g Group) Get(name Ident) *Directive {
+	for _, c := range g {
+		if c.Name == name {
+			return &c
+		}
+	}
+	return nil
+}
+
+// Filter directives by predicate and returns iterator over filtered items.
+func (g Group) Filter(predicate func(c *Directive) bool) iter.Seq[*Directive] {
+	return func(yield func(*Directive) bool) {
+		for _, c := range g {
+			if predicate(&c) && !yield(&c) {
+				return
+			}
+		}
+	}
+}
+
+// Directives returns iterator over Directives by ident.
+func (g Group) Directives(ident Ident) iter.Seq[*Directive] {
+	return g.Filter(func(c *Directive) bool { return c.Name == ident })
+}
